@@ -378,7 +378,7 @@ java-1.8.0-openjdk-amd64   java-8-openjdk-amd64
 - Next we will setup our Maven.
 ```sh
 Name: MAVEN3
-version : keep same
+version : keep same (3.8.6)
 ``` 
 
 - Next we need to add Nexus login credentials to Jenkins. Go to `Manage Jenkins` -> `Manage Credentials` ->  `Global` -> `Add Credentials`
