@@ -51,7 +51,7 @@ Allow: 80 from MyIP and Jenkins-SG
 Name: jenkins-server
 AMI: Ubuntu 20.04
 SecGrp: jenkins-SG
-InstanceType: t2.small
+InstanceType: t2.small or t3a.small(cheap)
 KeyPair: vprofile-ci-key
 Additional Details: userdata below
 ```
@@ -78,7 +78,7 @@ sudo apt-get install jenkins -y
 ```sh
 Name: nexus-server
 AMI: Amazon Linux-2
-InstanceType: t2.medium
+InstanceType: t2.medium or t3a.medium (cheap)
 SecGrp: nexus-SG
 KeyPair: vprofile-ci-key
 Additional Details: userdata below
@@ -130,7 +130,7 @@ systemctl enable nexus
 ```sh
 Name: sonar-server
 AMI: Ubuntu 18.04
-InstanceType: t2.medium
+InstanceType: t2.medium or t3a.midium(cheap)
 SecGrp: sonar-SG
 KeyPair: vprofile-ci-key
 Additional Details: userdata below
@@ -268,7 +268,7 @@ reboot
 - We need to SSH our jenkins server and check system status for Jenkins. Then we will get initialAdmin password from directory `/var/lib/jenkins/secrets/initialAdminPassword` 
 ```sh
 sudo -i
-system status jenkins
+systemctl status jenkins
 cat /var/lib/jenkins/secrets/initialAdminPassword 
 ```
 ![](images/jenkins-page.png)
@@ -290,7 +290,7 @@ Build Timestamp
 - We need to SSH our nexus server and check system status for nexus.
 ```sh
 sudo -i
-system status nexus
+systemctl status nexus
 ```
 
 - Go to browser, `http://<public_ip_of_nexus_server>:8081` ,click sign-in. Initial password will be located `/opt/nexus/sonatype-work/nexus3/admin.password`
@@ -348,9 +348,8 @@ Member repositories:
 
 - The content will be cloned from below link:
 ```sh
-git clone -b ci-jenkins git@github.com:rumeysakdogan/vprofileproject-all.git
+git clone -b ci-jenkins https://github.com/devopshydclub/vprofile-project.git
 ```
-
 ### Step-6: Build Job with Nexus Repo 
 
 - Our first job will be Build the Artifact from Source Code using Maven. We need JDK8 and Maven to be installed in jenkins to complete the job succesfully.
@@ -423,6 +422,9 @@ pipeline {
 
 - We will create a New Job in Jenkins with below properties:
 ```sh
+new Item
+name: vprofile-ci-pipeline
+Pipeline
 Pipeline from SCM 
 Git
 URL: <url_from_project> I will use SSH link
@@ -500,9 +502,9 @@ Two things need to setup:
  * SonarScanner tool in Jenkins to scan the code
  * We need SonarQube information in jenkins so that Jenkins will know where to upload these reports
 
-- Lets start with SonarScanner tool configuration. Go to `Manage Jenkins` -> `Global Tool Configuration`
+- Lets start with SonarScanner tool configuration. Go to `Manage Jenkins` -> `Global Tool Configuration` -> ´SonarQube Scanner´
 ```sh
-Add sonar scanner
+Add sonarQube scanner
 name: sonarscanner
 tick install automatically
 ```
@@ -551,6 +553,7 @@ SONARSCANNER = 'sonarscanner'
             }
 
           }
+ }
 ```
 
 - Our job is completed succesfully.
@@ -563,13 +566,31 @@ SONARSCANNER = 'sonarscanner'
 ![](images/scanning-complete.png)
 
 - We can create our own Quality Gates and add to our project as well. click `Quality gate` -> `Create`. add `Condition`. You can give `Bug is greater than 80` then Save it.
-click on projectname it will have a dropdown, click `Quality Gate` and choose the new Quality gate you have created.  
+click on projectname it will have a dropdown, click `Quality Gate` and choose the new Quality gate you have created.
+```sh
+Quality gate
+Create
+Create Quality gate name: vprofileQG  save
+Add Condition click
+On Overall Code click
+Quality Gate fails when : Bugs
+value:25 
+Add Condition cilick
+```
+
+`projects` -> `project settings` -> ``Qualite Gate`` -> ``select vprofileQG``
 
 Next we will create a Webhook in SonarQube to send the analysis results to jenkins.
 
-```sh
-http://<private_ip_of_jenkins>:8080/sonarqube-webhook
+``project settings`` -> ``Webhooks`` -> ``create`` 
+
 ```
+name : jenkinswebhook
+URL : http://<private_ip_of_jenkins_server>:8080/sonarqube-webhook
+
+```
+create
+
 ![](images/sonar-webhooks.png)
 
 - We will add below stage to our pipeline and commit changes to Github.
@@ -607,7 +628,7 @@ stage('UPLOAD ARTIFACT') {
                         groupId: 'QA',
                         version: "${env.BUILD_ID}-${env.BUILD_TIMESTAMP}",
                         repository: "${RELEASE_REPO}",
-                        credentialsId: ${NEXUS_LOGIN},
+                        credentialsId: "${NEXUS_LOGIN}",
                         artifacts: [
                             [artifactId: 'vproapp' ,
                             classifier: '',
